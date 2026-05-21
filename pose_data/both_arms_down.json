@@ -1,0 +1,124 @@
+{
+  "pose_name": "both_arms_down",
+  "keypoints": {
+    "nose": {
+      "dx": 0.3,
+      "dy": 41.1,
+      "magnitude": 41.101095,
+      "angle_rad": 1.563497,
+      "angle_deg": 89.58179
+    },
+    "left_eye": {
+      "dx": -10.7,
+      "dy": 49.4,
+      "magnitude": 50.545524,
+      "angle_rad": 1.784101,
+      "angle_deg": 102.22143
+    },
+    "right_eye": {
+      "dx": 10.7,
+      "dy": 49.4,
+      "magnitude": 50.545524,
+      "angle_rad": 1.357492,
+      "angle_deg": 77.77857
+    },
+    "left_ear": {
+      "dx": -24.3,
+      "dy": 45.2,
+      "magnitude": 51.317931,
+      "angle_rad": 2.064078,
+      "angle_deg": 118.262947
+    },
+    "right_ear": {
+      "dx": 24.3,
+      "dy": 45.2,
+      "magnitude": 51.317931,
+      "angle_rad": 1.077515,
+      "angle_deg": 61.737053
+    },
+    "left_shoulder": {
+      "dx": -45.4,
+      "dy": 0.3,
+      "magnitude": 45.400991,
+      "angle_rad": 3.134985,
+      "angle_deg": 179.621399
+    },
+    "right_shoulder": {
+      "dx": 45.4,
+      "dy": 0.2,
+      "magnitude": 45.400441,
+      "angle_rad": 0.004405,
+      "angle_deg": 0.252403
+    },
+    "left_elbow": {
+      "dx": -112.7,
+      "dy": -22.4,
+      "magnitude": 114.904526,
+      "angle_rad": -2.945392,
+      "angle_deg": -168.758521
+    },
+    "right_elbow": {
+      "dx": 112.7,
+      "dy": -22.4,
+      "magnitude": 114.904526,
+      "angle_rad": -0.196201,
+      "angle_deg": -11.241479
+    },
+    "left_wrist": {
+      "dx": -112.2,
+      "dy": -65.8,
+      "magnitude": 130.071058,
+      "angle_rad": -2.611194,
+      "angle_deg": -149.610391
+    },
+    "right_wrist": {
+      "dx": 112.5,
+      "dy": 65.8,
+      "magnitude": 130.329927,
+      "angle_rad": 0.529234,
+      "angle_deg": 30.322891
+    },
+    "left_hip": {
+      "dx": -30.8,
+      "dy": -152.2,
+      "magnitude": 155.285157,
+      "angle_rad": -1.770465,
+      "angle_deg": -101.440183
+    },
+    "right_hip": {
+      "dx": 30.8,
+      "dy": -152.2,
+      "magnitude": 155.285157,
+      "angle_rad": -1.371127,
+      "angle_deg": -78.559817
+    },
+    "left_knee": {
+      "dx": -37.4,
+      "dy": -259.2,
+      "magnitude": 261.884326,
+      "angle_rad": -1.714097,
+      "angle_deg": -98.210548
+    },
+    "right_knee": {
+      "dx": 37.4,
+      "dy": -259.2,
+      "magnitude": 261.884326,
+      "angle_rad": -1.427495,
+      "angle_deg": -81.789452
+    },
+    "left_ankle": {
+      "dx": -37.3,
+      "dy": -369.8,
+      "magnitude": 371.676378,
+      "angle_rad": -1.671322,
+      "angle_deg": -95.759678
+    },
+    "right_ankle": {
+      "dx": 37.3,
+      "dy": -369.9,
+      "magnitude": 371.775873,
+      "angle_rad": -1.470298,
+      "angle_deg": -84.241869
+    }
+  }
+}

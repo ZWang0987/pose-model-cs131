@@ -92,25 +92,25 @@ while True:
                 #     f.write(f"    {name}: x={kp.x:.1f}, y={kp.y:.1f}\n")
 
 
-                # Find nose point
-                nose_kp = None
+                # Find neck point
+                neck_kp = None
                 for kp in pose.Keypoints:
-                    if net.GetKeypointName(kp.ID) == "nose":
-                        nose_kp = kp
+                    if net.GetKeypointName(kp.ID) == "neck":
+                        neck_kp = kp
                         break
 
-                # Vectors from nose to all other keypoints
-                if nose_kp is not None:
-                    f.write("    Direction Vectors (relative to nose):\n")
+                # Vectors from neck to all other keypoints
+                if neck_kp is not None:
+                    f.write("    Direction Vectors (relative to neck):\n")
                     for kp in pose.Keypoints:
                         name = net.GetKeypointName(kp.ID)
-                        if name == "nose":
+                        if name == "neck":
                             continue
-                        vec_x = nose_kp.x - kp.x
-                        vec_y = nose_kp.y - kp.y
-                        f.write(f"      nose -> {name}: ({vec_x:.1f}, {vec_y:.1f})\n")
+                        vec_x = neck_kp.x - kp.x
+                        vec_y = neck_kp.y - kp.y
+                        f.write(f"      neck -> {name}: ({vec_x:.1f}, {vec_y:.1f})\n")
                 else:
-                    f.write("    Nose not detected, skipping direction vectors\n")
+                    f.write("    Neck not detected, skipping direction vectors\n")
                     
         last_save_time = current_time
 

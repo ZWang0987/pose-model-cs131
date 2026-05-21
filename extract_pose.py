@@ -10,34 +10,34 @@ import re #regular expression libaray from python
 
 #input raw text string here
 RAW_POSE_STR = """
-    nose -> left_eye: (-11.0, 10.0)
-    nose -> right_eye: (12.3, 9.7)
-    nose -> left_ear: (-26.5, 1.1)
-    nose -> right_ear: (31.2, -0.2)
-    nose -> left_shoulder: (-58.0, -70.2)
-    nose -> right_shoulder: (57.9, -70.5)
-    nose -> left_elbow: (-87.7, -164.3)
-    nose -> right_elbow: (75.4, -159.3)
-    nose -> left_wrist: (-87.9, -239.7)
-    nose -> right_wrist: (81.0, -237.5)
-    nose -> left_hip: (-31.9, -244.5)
-    nose -> right_hip: (41.3, -241.4)
-    nose -> left_knee: (-43.3, -374.3)
-    nose -> right_knee: (38.9, -372.6)
-    nose -> left_ankle: (-47.4, -490.0)
-    nose -> right_ankle: (48.6, -482.1)
-    nose -> neck: (-0.0, -70.5)
+      neck -> nose: (0.3, 41.1)
+      neck -> left_eye: (-10.7, 49.4)
+      neck -> right_eye: (10.7, 49.4)
+      neck -> left_ear: (-24.3, 45.2)
+      neck -> right_ear: (24.3, 45.2)
+      neck -> left_shoulder: (-46.7, 9.0)
+      neck -> right_shoulder: (46.7, -9.0)
+      neck -> left_elbow: (-127.0, 9.1)
+      neck -> right_elbow: (80.6, -75.5)
+      neck -> left_wrist: (-116.6, 59.3)
+      neck -> right_wrist: (112.8, -130.1)
+      neck -> left_hip: (-51.0, -129.1)
+      neck -> right_hip: (18.6, -141.0)
+      neck -> left_knee: (-115.1, -177.6)
+      neck -> right_knee: (-1.7, -257.1)
+      neck -> left_ankle: (-119.9, -293.0)
+      neck -> right_ankle: (-16.3, -364.6)
 """
 
 #set name of pose that the frame above should be and set output file name
-POSE_NAME   = "tpose"
-OUTPUT_FILE = "pose_made.json"
+POSE_NAME   = "left_arm_up_and_left_leg_up"
+OUTPUT_FILE = "left_arm_up_and_left_leg_up.json"
 
 
 #this is a python regex converter allowing us to parse through our RAW_POSE_STR
 #this is soley for extraction and was done with the help of ai
 LINE_PATTERN = re.compile(
-    r"nose\s*"        # literal "nose", then optional whitespace
+    r"neck\s*"        # literal "neck", then optional whitespace
     r"->\s*"          # literal "->", then optional whitespace
     r"(\w+)\s*"       # capture group 1: destination keypoint name (letters, digits, underscores)
     r":\s*"           # literal ":", then optional whitespace
@@ -110,4 +110,5 @@ if __name__ == "__main__":
 
     with open(OUTPUT_FILE, "w") as file:
         json.dump(output, file, indent=2)
+ 
  

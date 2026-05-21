@@ -1,212 +1,204 @@
-
-
-# python compare_pose.py --reference tpose.json --frames frames.txt
-
-
-#file compares a pose against a sequence of time frames (currently this is for a whole sequence against one pose but
-#much of the functionality of comparing the correct sequence of poses to the whole time frames should be the
-#the same function calls)
-
-#this file takes in a pose from a json and a txt file for comparsion
-
-#to use this  python3 comparsion_pose.py --reference tpose.json --frames pose_locations.txt
-
 import json
 import math
 import re
-import argparse
 
 
+def parse_pose_sequence_data(filename: str) -> tuple[list[str], dict]:
+    #opens a json file in read mode, this should be the song file sent from server
+    with open(filename, "r") as f:
+        data = json.load(f)
 
-#the next three functions parases our data 
+    #extracts the sequence order of poses from the json file, this is just 
+    #a string of pose names in the order they should be performed in the song
+    sequence_order = data["sequence_order"].split(", ")
 
-#converts our time frame samples to a regex (use whats generated from posenet.py)
-LINE_PATTERN = re.compile(
-    r"nose\s*->\s*(\w+)\s*:\s*\(\s*([+-]?\d+\.?\d*)\s*,\s*([+-]?\d+\.?\d*)\s*\)"
-)
-TIMESTAMP_PATTERN = re.compile(r"Timestamp:\s*([\d.]+)s")
+    #extracts the poses from the json file, this is a list of dicts with each dict containing 
+    #a pose name and the keypoints for that pose
+    #poses here is the dictionary of pose names to their keypoints
+    #for each pose in poses we going to store the pose name and its keypoints in a dictionary
+    poses = {}
+    for pose in data["poses"]:
+        poses[pose["pose_name"]] = pose["keypoints"]
 
-#loads a pose from a json file, please use the jsons from extract_pose.py
-def load_reference(filepath: str) -> dict:
-    with open(filepath) as file:
-        data = json.load(file)
-    return data  # { pose_name, keypoints: { name: {dx,dy,magnitude,angle_rad,...} } }
+    return sequence_order, poses
 
-#same logic from extract_pose.txt except now works for a while txt file which contains a representation of our live timeframes
-#this returns list of dicts whcih is just a time stap into a keypoints and the keypoints dx,dy and angle relative to the nose
-def parse_frames(filepath: str) -> list[dict]:
-    frames = []
-    current_timestamp = None
-    current_keypoints = {}
 
-    with open(filepath) as file:
-        for line in file:
-            ts_match = TIMESTAMP_PATTERN.search(line)
+def parse_frame_data(filename: str) -> list[dict] :
+    frame_data = []
+    current_frame = None
+
+    with open(filename, "r") as f:
+        for line in f:
+            line = line.strip()
+
+            # Match a timestamp line, e.g. "=== Timestamp: 15.0s ==="
+            #re here extracts the timestamp with any digit and it looks for the pattern in a line
+            ts_match = re.match(r"=== Timestamp: ([\d.]+)s ===", line)
+
+            #we have a time stamp match
             if ts_match:
-                #saves timeframe if we have one
-                if current_timestamp  is not None and current_keypoints:
-                    frames.append({"timestamp": current_timestamp , "keypoints": current_keypoints})
-                current_timestamp  = float(ts_match.group(1))
-                current_keypoints = {}
+                # Save the previous frame data before starting a new one
+                if current_frame is not None:
+                    frame_data.append(current_frame)
+                
+                #stores the current timestamp and resets the keypoints for the new frame
+                current_frame = {
+                    "time": ts_match.group(1) + "s",
+                    "keypoints": {}
+                }
                 continue
 
-            kp_match = LINE_PATTERN.search(line)
-            if kp_match:
-                name = kp_match.group(1)
-                dx   = float(kp_match.group(2))
-                dy   = float(kp_match.group(3))
-                magnitude  = math.sqrt(dx * dx + dy * dy)
-                angle_rad = math.atan2(dy, dx)
-                current_keypoints[name] = {
-                    "dx":dx,
-                    "dy":dy,
+            # Match a vector line, e.g. "nose -> left_eye: (-15.4, 24.8)"
+            #vec_match here extracts a word -> word: (number, number) pattern and looks for it in a line
+            vec_match = re.match(r"(\w+) -> (\w+): \(([-\d.]+), ([-\d.]+)\)", line)
+
+            #if we find a match which we will as all keypoints will follow this pattern guarenteed
+            if vec_match and current_frame is not None:
+                #word(nose) -> word(keypoint name): (x relative to nose, y relative to nose) we extract these values and save them as variables
+                nose, keypoint_name_extracted, x, y = vec_match.groups()
+                x, y = float(x), float(y) #convertx and y to floats
+                keypoint_name = f"{keypoint_name_extracted}"
+
+                magnitude  = math.sqrt(x * x + y * y) #find the magnitude of current keypoint of timeframe sqrt(x^2 + y^2)
+                angle_rad = math.atan2(y, x) #find the angle of current keypoint of timeframe atan2(y, x)
+
+                #stores the keypoints for the current frame in a dictionary with the keypoint name as the key and 
+                #a dictionary of magnitude and angle as the value
+                current_frame["keypoints"][keypoint_name] = { 
                     "magnitude": round(magnitude,6),
                     "angle_rad": round(angle_rad,6),
+                    "angle_deg":round(math.degrees(angle_rad), 6)
                 }
 
-    # Don't forget the last frame
-    if current_timestamp  is not None and current_keypoints:
-        frames.append({"timestamp": current_timestamp , "keypoints": current_keypoints})
+        # Don't forget the last frame
+        if current_frame is not None:
+            frame_data.append(current_frame)
 
-    return frames
+    return frame_data
+
+#calculates the smallest angle difference between two angles in radians, this handles the wraparound at -pi and +pi
+def angle_difference(a, b) -> float:
+    # smallest angle between two radian values, handles the -pi/+pi wraparound
+    diff = abs(a - b) % (2 * math.pi)
+    if diff > math.pi:
+        diff = 2 * math.pi - diff
+    return diff
+
+#this function takes the angle difference in degrees and converts it to a score out of 100, 
+# with 10 degrees or less being a perfect score and losing 1% per degree past 15
+def score_from_difference_degree(diff_deg) -> float:
+    if diff_deg <= 15:
+        return 100.0
+    score = 100.0 - diff_deg + 15  # lose 1% per degree past 15
+    if score < 0:
+        score = 0.0
+    return score
+
+#main comparsion function
+def compare_sequence_to_frames(sequence_order: list[str], poses: dict, frame_data: list[dict]) -> list[dict]:
+    results = []
+
+    # pair each pose name with a frame, position by position (sequentially goes through the list of poses and frames together)
+    for pose_name, frame in zip(sequence_order, frame_data):
+        target = poses[pose_name]       # the "correct" pose from the song
+        actual = frame["keypoints"]     # what was detected at that timestamp
+
+        worst_degree_difference = 0.0 #difference of angle for the worse joint in degrees
+        worst_keypoint = None # the name of the worse joint of frame to target
+
+        # only compare all keypoints that exist in target pose and actual frame
+        # keypoint_name is the key that is just in target by now we know what pose we are looking for as it is
+        # saved in pose_name from our sequence order
+        for keypoint_name in target:
+            if keypoint_name in actual:
+                expected_value = target[keypoint_name]["angle_rad"]
+                detected_value = actual[keypoint_name]["angle_rad"]
+                diff = angle_difference(expected_value, detected_value)
+
+                # keep the largest difference = the worst joint
+                if diff > worst_degree_difference:
+                    worst_degree_difference = diff
+                    worst_keypoint = keypoint_name
+
+            # else:
+            #     # a keypoint in the target pose was not detected at all in the actual frame, this is the worst case for that joint (commented due to camera errors)
+            #     worst_degree_difference = 1.75 #gives a score of 0 if no frames are detected
+            #     worst_keypoint = None
+
+        score = score_from_difference_degree(round(math.degrees(worst_degree_difference), 6))
+
+        #saves the data of the pose name and the time frame
+        #saves the worst keypoint and the difference in radians and degrees
+        results.append({
+            "pose_name": pose_name,
+            "time": frame["time"],
+            "worst_keypoint": worst_keypoint,
+            "worst_degree_difference_rad": round(worst_degree_difference, 6),
+            "worst_degree_difference_degree": round(math.degrees(worst_degree_difference), 6),
+            "score": round(score, 0)
+        })
+
+    return results
+
+#takes total score of all frames and averages it to get a total accuracy for the whole song performance
+def total_accuracy (results: list[dict]) -> float:
+    if not results:
+        return 0.0
+    total_score = sum(r["score"] for r in results)
+    return round(total_score / len(results), 0)
 
 
-#manually set joint weights for comparsion calculations later 
-#this lets us set weights for what we actually want to include 1 incude 0 dont include
-JOINT_WEIGHTS = {
-    "left_shoulder":  1,
-    "right_shoulder": 1,
-    "left_elbow":     1,
-    "right_elbow":    1,
-    "left_wrist":     1,
-    "right_wrist":    1,
-    "left_hip":       1,
-    "right_hip":      1,
-    "left_knee":      1,
-    "right_knee":     1,
-    "left_ankle":     1,
-    "right_ankle":    1,
-    "neck":           1,
-    "left_eye":       0,
-    "right_eye":      0,
-    "left_ear":       0,
-    "right_ear":      0,
-}
 
 
-#below is the main comparsion logic used for this
-
-#smallest angle difference between two angles [0,pi] or [0,180]
-def _angle_diff(a: float, b: float) -> float:
-    return abs((a - b + math.pi) % (2 * math.pi) - math.pi)
+def main():
 
 
-#converts the angle to a score
-#there is a exponential fall off e^(-curve * (error/pi)^2)
-def _angle_to_score(angle_error_radians: float) -> float:
-    
-    #higher the curve, the less forgiving the angle error is
-    curve: float = 4.0
+
+    #####################################
+
+    # #tests if the pose sequence loaded correctly or not by outputting contents to console
+
+    # sequence_order, poses = parse_pose_sequence_data("song_example.json")
+
+    # for pose_name in sequence_order:
+    #     print(f"Pose: {pose_name}")
+    #     keypoints = poses[pose_name]
+    #     for name, info in keypoints.items():
+    #         print(f"  {name}: dx={info['dx']}, dy={info['dy']}, magnitude={info['magnitude']}, angle_rad={info['angle_rad']}, angle_deg={info['angle_deg']}")
+    #     print()
+
+    #####################################
 
 
-    t = angle_error_radians / math.pi   #normalise to [0, 1] [0,180]
-    return math.exp(-curve * t * t) * 100
 
-#actual comparsion of a pose to a frame (start here)
-def compare(reference: dict, frame: dict) -> dict:
+    #####################################
 
-    #loads pose reference keypoints
-    reference_keypoints = reference["keypoints"]
+    # #tests if the frame data loaded correctly or not by outputting contents to console
 
-    #loads the frame keypoint
-    frame_keypoints = frame["keypoints"]
+    # #frame data is a list of dicts with each dict containing a timestamp and the keypoints for that timestamp
+    # #the list is by time stamp as frame
+    # #each frams holds the values for the keypoints data for that time stamp
+    # frame_data: list[dict] = parse_frame_data("pose_locations.txt")
+    # for frame in frame_data:
+    #     print(frame["time"])
+    #     for keypoint_name, value in frame["keypoints"].items():
+    #         print(f"  {keypoint_name}: mag={value['magnitude']}, angle_rad={value['angle_rad']}, angle_deg={value['angle_deg']}")
 
-    #score
-    joint_scores = {}
+    #####################################
 
-    #compares all joints in the reference pose to the frame and calculates an angle error and a score for each joint's
-    #here the joint name is the keypoint
-    for name, reference_keypoint in reference_keypoints.items():
+    sequence_order, poses = parse_pose_sequence_data("song_example.json")
+    frame_data = parse_frame_data("pose_locations.txt")
 
-        #if the joints dont exist we will just skip it as we can't compare it, idealy we always have all 
-        #keypoints
-        if name not in frame_keypoints:
-            continue
+    results = compare_sequence_to_frames(sequence_order, poses, frame_data)
+    # for r in results:
+    #     print(f"{r['pose_name']} @ {r['time']}: "
+    #         f"worst joint = {r['worst_keypoint']} "
+    #         f"({r['worst_degree_difference_degree']}° off)"
+    #         f"score = {r['score']}%")
         
-
-        frame_keypoint  = frame_keypoints[name]
-        angle_error = _angle_diff(reference_keypoint["angle_rad"], frame_keypoint["angle_rad"]) #calculates angle diff of the current keypoint for the timestamp and reference pose
-        score     = _angle_to_score(angle_error) #convers angle diff to score
-        weight    = JOINT_WEIGHTS.get(name, 1.0) #applies weight per joint keypoint as we will not consider some
-
-        #stores score for that joint keypoint differnce of frame to pose reference
-        #does it per joint keypoint
-        joint_scores[name] = {
-            "score":           round(score, 1),
-            "angle_error_deg": round(math.degrees(angle_error), 2),
-            "weight":          weight,
-        }
-
-    
-    #here we only include the joints that we care about so its any of the joint that have weight set higher to our threshold
-    heavy_scores = {
-        k: v["score"] for k, v in joint_scores.items()
-        if JOINT_WEIGHTS.get(k, 0) >= 1
-    }
-    worst_joint_name  = min(heavy_scores, key=heavy_scores.get) if heavy_scores else None
-    worst_joint_score = heavy_scores[worst_joint_name] if worst_joint_name else 0.0
-
-    return {
-        "overall_score":    round(worst_joint_score, 2),
-        "worst_joint_name": worst_joint_name,
-        "joints":           joint_scores,
-    }
-
-
-# For visual output to terminal, this will be scraped later, generated via ai for visual display through testing
-
-def print_frame_result(timestamp: float, result: dict):
-    print(f"\n  Timestamp: {timestamp}s  |  Score: {result['overall_score']:.1f}%"
-          f"  (worst limb: {result['worst_joint_name']})")
-    print(f"  {'Joint':<18} {'Score':>7}  {'Angle Error':>12}  {'Weight':>6}")
-    print(f"  {'-'*50}")
-    for name, stats in result["joints"].items():
-        bar     = "█" * int(stats["score"] / 10)
-        marker  = " ◄" if name == result["worst_joint_name"] else ""
-        print(f"  {name:<18} {stats['score']:>6.1f}%  {stats['angle_error_deg']:>10.2f}°  {stats['weight']:>6.1f}  {bar}{marker}")
-
-
-# Pipeline done with the help of ai for testing of calculation and access of files
+    accuracy = total_accuracy(results)
+    print(f"Total Accuracy: {accuracy}%")
+            
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Compare poses against a reference.")
-    parser.add_argument("--reference", required=True, help="Path to reference pose JSON")
-    parser.add_argument("--frames",    required=True, help="Path to timestamped frames TXT")
-    args = parser.parse_args()
-
-    reference = load_reference(args.reference)
-    frames    = parse_frames(args.frames)
-
-    print(f"\nReference pose : {reference['pose_name']}")
-    print(f"Frames file    : {args.frames}  ({len(frames)} frame(s) found)")
-    print("=" * 60)
-
-    results = []
-    
-    #this will do it for every time frame but compares one frame at a time
-    for frame in frames:
-        result = compare(reference, frame)
-        results.append((frame["timestamp"], result))
-        print_frame_result(frame["timestamp"], result)
-
-    if results:
-        best_ts,  best_result  = max(results, key=lambda x: x[1]["overall_score"])
-        worst_ts, worst_result = min(results, key=lambda x: x[1]["overall_score"])
-        avg_score = sum(r["overall_score"] for _, r in results) / len(results)
-
-        print(f"\n{'='*60}")
-        print(f"  Best  : {best_ts}s  →  {best_result['overall_score']:.1f}%  (worst limb: {best_result['worst_joint_name']})")
-        print(f"  Worst : {worst_ts}s  →  {worst_result['overall_score']:.1f}%  (worst limb: {worst_result['worst_joint_name']})")
-        print(f"  {'-'*56}")
-        print(f"  Avg worst-limb score : {avg_score:.1f}%  across {len(results)} frame(s)")
-        print(f"{'='*60}\n")
+    main()
